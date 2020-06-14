@@ -22,6 +22,13 @@
 set -e
 #set -x
 
+# hints in case you haven't enough /dev/loops
+#
+# modprobe loop max_loop=64
+# mknod -m 660 /dev/loop24 b 7 24
+# mknod -m 660 /dev/loop25 b 7 25
+# mknod -m 660 /dev/loop26 b 7 26
+
 #
 # config
 #
@@ -34,8 +41,13 @@ if [ ! -d $GRUB2_DIR ]; then
 	exit 1
 fi
 
-head_size_kib=1768
- head_img="grub2-head.img"
+# loop dev for image, partition 2 and 3 of image
+loop_image=/dev/loop24
+loop_part2=/dev/loop25
+loop_part3=/dev/loop26
+
+head_size_kib=1848
+head_img="grub2-head.img"
 
 # generate image file
 if [ -f $head_img ]; then
@@ -50,7 +62,7 @@ parted="parted -a none -s $head_img -- "
 let "bios_boot_fs = 40  *     512 / 512" # fs == firstsector
 let "bios_boot_ls = $bios_boot_fs + 83"  # ls == lastsector
 let "grub2_fs     = $bios_boot_ls + 1"
-let "grub2_ls     = 1724 * 1024 / 512 - $bios_boot_fs - 1"
+let "grub2_ls     = 1796 * 1024 / 512 - $bios_boot_fs - 1"
 let "genode_fs    = $grub2_ls + 1"
 let "genode_ls    = $head_size_kib * 1024 / 512 - $bios_boot_fs - 1"
 
@@ -60,32 +72,32 @@ $parted "mkpart GRUB2    fat32 ${grub2_fs}s     ${grub2_ls}s      set 2 boot on"
 $parted "mkpart GENODE*  fat32 ${genode_fs}s    ${genode_ls}s"
 
 #
-# loop image as disk (loop0), partition 2 (loop2) and partition 3 (loop 3)
+# mount loop images
 #
 let "grub2_offset  = $grub2_fs * 512"
 let "grub2_size    = ($grub2_ls - $grub2_fs) * 512"
 let "genode_offset = $genode_fs * 512"
 let "genode_size   = ($genode_ls - $genode_fs) * 512"
 
-sudo losetup /dev/loop0 $head_img
-sudo losetup /dev/loop2 $head_img -o $grub2_offset  --sizelimit $grub2_size
-sudo losetup /dev/loop3 $head_img -o $genode_offset --sizelimit $genode_size
+sudo losetup $loop_image $head_img
+sudo losetup $loop_part2 $head_img -o $grub2_offset  --sizelimit $grub2_size
+sudo losetup $loop_part3 $head_img -o $genode_offset --sizelimit $genode_size
 
 # initialize partitions
-sudo mkfs.vfat /dev/loop2 -n GRUB2
-sudo mkfs.vfat /dev/loop3 -n GENODE*
+sudo mkfs.vfat $loop_part2 -n GRUB2
+sudo mkfs.vfat $loop_part3 -n GENODE*
 
 # install GRUB2
 mnt_grub2=$(mktemp -d)
 mnt_genode=$(mktemp -d)
 
-sudo mount /dev/loop2 $mnt_grub2
-sudo mount /dev/loop3 $mnt_genode
+sudo mount $loop_part2 $mnt_grub2
+sudo mount $loop_part3 $mnt_genode
 
 sudo $GRUB2_INSTALL --root-directory=$mnt_grub2 --no-floppy \
                     --target i386-pc \
-                    --install-modules="configfile multiboot multiboot2 gzio ext2 gfxterm_background png" \
-                    --modules="biosdisk part_gpt vbe" /dev/loop0
+                    --install-modules="configfile multiboot multiboot2 gzio ext2 gfxterm_background png regexp" \
+                    --modules="biosdisk part_gpt vbe" $loop_image
 sudo rm $mnt_grub2/boot/grub/grubenv
 sudo rm $mnt_grub2/boot/grub/i386-pc/*.img
 sudo rm $mnt_grub2/boot/grub/i386-pc/*.sh
@@ -98,7 +110,8 @@ sudo rmdir $mnt_grub2/boot/grub/locale
 cfg=$(mktemp)
 
 cat > $cfg <<EOF
-set root=(hd0,3)
+regexp --set 1:disc "([a-z]+[0-9]+)" "\$root"
+set root=(\$disc,3)
 
 set gfxpayload="0x0x32"
 
@@ -135,12 +148,15 @@ sudo cp $cfg $mnt_genode/boot/grub/grub.cfg
 # by installing libfreetype6-dev? or unifont? it will be generated
 #sudo cp /boot/grub/fonts/unicode.pf2 $mnt_genode/boot/grub/fonts/.
 
+# show numbers about allocated/free space
+df -h $loop_part2 $loop_part3
+
 # cleanup
 rm $cfg
 sudo umount $mnt_grub2
 sudo umount $mnt_genode
 rm -r $mnt_grub2
 rm -r $mnt_genode
-sudo losetup -d /dev/loop3
-sudo losetup -d /dev/loop2
-sudo losetup -d /dev/loop0
+sudo losetup -d $loop_part3
+sudo losetup -d $loop_part2
+sudo losetup -d $loop_image
