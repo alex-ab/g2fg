@@ -42,11 +42,11 @@ if [ ! -d $GRUB2_DIR ]; then
 fi
 
 # loop dev for image, partition 2 and 3 of image
-loop_image=/dev/loop24
-loop_part2=/dev/loop25
-loop_part3=/dev/loop26
+loop_image=/dev/loop50
+loop_part2=/dev/loop51
+loop_part3=/dev/loop52
 
-head_size_kib=1848
+head_size_kib=2048
 head_img="grub2-head.img"
 
 # generate image file
@@ -60,9 +60,9 @@ fallocate -l ${head_size_kib}kiB $head_img
 parted="parted -a none -s $head_img -- "
 
 let "bios_boot_fs = 40  *     512 / 512" # fs == firstsector
-let "bios_boot_ls = $bios_boot_fs + 83"  # ls == lastsector
+let "bios_boot_ls = $bios_boot_fs + 100"  # ls == lastsector
 let "grub2_fs     = $bios_boot_ls + 1"
-let "grub2_ls     = 1796 * 1024 / 512 - $bios_boot_fs - 1"
+let "grub2_ls     = 1996 * 1024 / 512 - $bios_boot_fs - 1"
 let "genode_fs    = $grub2_ls + 1"
 let "genode_ls    = $head_size_kib * 1024 / 512 - $bios_boot_fs - 1"
 

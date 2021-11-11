@@ -34,18 +34,17 @@ GRUB2_DIR_UEFI_64_INSTALL=$GRUB2_DIR_UEFI_64_SRC/binary
 
 if [ ! -d $GRUB2_DIR/grub.git ]; then
 	#git clone git://git.savannah.gnu.org/grub.git $GRUB2_DIR/grub.git
-	# genode_uefi version:
-	#   commit e10f34ac39c2249e0edb749d22862c46c16c716e
-	#  based on grub master
-	#   commit 446794de8da4329ea532cbee4ca877bcafd0e534 (checkout 1.11.2017)
+	# ae94b97be2b81b625d6af6654d3ed79078b50ff6 (tag: grub-2.06)
+	#genode_uefi version:
+	#   commit 2bda5a81db1e0cb113a7cf69d283e3e2635189e8
+	#  based on grub-2.06
 	# genode_bios version:
-	#   comit 0335c4d946b055181d9fd1b24884213d21afb296
-	#  based on grub master
-	#   commit 446794de8da4329ea532cbee4ca877bcafd0e534 (checkout 1.11.2017)
+	#   commit 2bda5a81db1e0cb113a7cf69d283e3e2635189e8
+	#  based on grub-2.06
 
 	git clone https://github.com/alex-ab/grub.git $GRUB2_DIR/grub.git
-	cd $GRUB2_DIR/grub.git && git checkout e10f34ac39c2249e0edb749d22862c46c16c716e -b genode_uefi
-	cd $GRUB2_DIR/grub.git && git checkout 0335c4d946b055181d9fd1b24884213d21afb296 -b genode_bios
+	cd $GRUB2_DIR/grub.git && git checkout origin/genode_bios_206 -b genode_uefi
+	cd $GRUB2_DIR/grub.git && git checkout origin/genode_bios_206 -b genode_bios
 	cd $GRUB2_DIR/grub.git && git checkout master
 fi
 
@@ -66,7 +65,7 @@ fi
 # UEFI 64 bit version
 #
 if [ ! -f $GRUB2_DIR_UEFI_64_SRC/configure ]; then
-	cd $GRUB2_DIR_UEFI_64_SRC && ./autogen.sh
+	cd $GRUB2_DIR_UEFI_64_SRC && ./bootstrap
 fi
 if [ ! -f $GRUB2_DIR_UEFI_64_SRC/config.h ]; then
 	cd $GRUB2_DIR_UEFI_64_SRC && ./configure --quiet --prefix=$GRUB2_DIR_UEFI_64_INSTALL --with-platform=efi --target=x86_64
@@ -80,7 +79,7 @@ $GRUB2_DIR_UEFI_64_INSTALL/bin/grub-mkimage -O x86_64-efi -d $GRUB2_DIR_UEFI_64_
 # UEFI 32 bit version
 #
 if [ ! -f $GRUB2_DIR_UEFI_32_SRC/configure ]; then
-	cd $GRUB2_DIR_UEFI_32_SRC && ./autogen.sh
+	cd $GRUB2_DIR_UEFI_32_SRC && ./bootstrap
 fi
 if [ ! -f $GRUB2_DIR_UEFI_32_SRC/config.h ]; then
 	cd $GRUB2_DIR_UEFI_32_SRC && ./configure --quiet --prefix=$GRUB2_DIR_UEFI_32_INSTALL --with-platform=efi --target=i386
@@ -94,7 +93,7 @@ $GRUB2_DIR_UEFI_32_INSTALL/bin/grub-mkimage -O i386-efi -d $GRUB2_DIR_UEFI_32_IN
 # BIOS version
 #
 if [ ! -f $GRUB2_DIR_BIOS_SRC/configure ]; then
-	cd $GRUB2_DIR_BIOS_SRC && ./autogen.sh
+	cd $GRUB2_DIR_BIOS_SRC && ./bootstrap
 fi
 if [ ! -f $GRUB2_DIR_BIOS_SRC/config.h ]; then
 	cd $GRUB2_DIR_BIOS_SRC && ./configure --quiet --prefix=$GRUB2_DIR_BIOS --with-platform=pc
