@@ -61,6 +61,7 @@ fi
 $MAKE -C $GRUB2_DIR_UEFI_64 install
 
 $GRUB2_DIR_UEFI_64_INSTALL/bin/grub-mkimage -O x86_64-efi -d $GRUB2_DIR_UEFI_64_INSTALL/lib/grub/x86_64-efi -o $GRUB2_DIR/grub2_64.efi $GRUB2_MODULES_COMMON $GRUB2_MODULES_UEFI -p "/boot/grub"
+$GRUB2_DIR_UEFI_64_INSTALL/bin/grub-mkimage -O x86_64-efi -d $GRUB2_DIR_UEFI_64_INSTALL/lib/grub/x86_64-efi -o $GRUB2_DIR/grub2_64net.efi tftp efinet multiboot2 gzio configfile -p "/tftpboot"
 
 
 #
@@ -108,6 +109,7 @@ cp $GRUB2_DIR/embedded.img $GRUB2_DIR/grub2/.
 # UEFI
 cp $GRUB2_DIR/grub2_32.efi $GRUB2_DIR/grub2/.
 cp $GRUB2_DIR/grub2_64.efi $GRUB2_DIR/grub2/.
+cp $GRUB2_DIR/grub2_64net.efi $GRUB2_DIR/grub2/.
 
 # tar
 tar cJfC $GRUB2_DIR/grub2-tmp.tar.xz $GRUB2_DIR grub2
