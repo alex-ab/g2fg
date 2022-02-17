@@ -33,7 +33,7 @@ set -e
 # config
 #
 
-GRUB2_DIR=/tmp/tmp.genode_grub2/32_pc.git/binary
+GRUB2_DIR=/tmp/tmp.genode_grub2/32_pc/binary
 GRUB2_INSTALL=$GRUB2_DIR/sbin/grub-install
 
 if [ ! -d $GRUB2_DIR ]; then

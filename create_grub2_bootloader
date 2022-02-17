@@ -1,8 +1,8 @@
 #!/bin/bash
 #
 # \author  Alexander Boettcher
-#
-set -e
+
+set -e # exit immediately on error
 
 if [ ! -d $GENODE_DIR/repos ]; then
 	echo "Directory seems not to contain Genode sources - exit"
@@ -10,10 +10,13 @@ if [ ! -d $GENODE_DIR/repos ]; then
 	exit
 fi
 
+MAKE="${MAKE:="make"} --quiet"
+
+set -u # treat unset variables as error
+
 cd $GENODE_DIR
 
 GRUB2_PORT_DIR=$($GENODE_DIR/tool/ports/current grub2)
-FILES_MOD=$(basename -a $(ls $GRUB2_PORT_DIR/boot/grub2/*.mod))
 
 GRUB2_DIR=/tmp/tmp.genode_grub2
 
@@ -23,16 +26,9 @@ if [ ! -d $GRUB2_DIR ]; then
 	GRUB2_DIR=$(mktemp -d)
 fi
 
-GRUB2_DIR_BIOS_SRC=$GRUB2_DIR/32_pc.git
-GRUB2_DIR_BIOS=$GRUB2_DIR_BIOS_SRC/binary
+GRUB2_DIR_SRC=$GRUB2_DIR/grub.git
 
-GRUB2_DIR_UEFI_32_SRC=$GRUB2_DIR/32_efi.git
-GRUB2_DIR_UEFI_32_INSTALL=$GRUB2_DIR_UEFI_32_SRC/binary
-
-GRUB2_DIR_UEFI_64_SRC=$GRUB2_DIR/64_efi.git
-GRUB2_DIR_UEFI_64_INSTALL=$GRUB2_DIR_UEFI_64_SRC/binary
-
-if [ ! -d $GRUB2_DIR/grub.git ]; then
+if [ ! -d $GRUB2_DIR_SRC ]; then
 	#git clone git://git.savannah.gnu.org/grub.git $GRUB2_DIR/grub.git
 	# ae94b97be2b81b625d6af6654d3ed79078b50ff6 (tag: grub-2.06)
 	#genode_uefi version:
@@ -42,67 +38,61 @@ if [ ! -d $GRUB2_DIR/grub.git ]; then
 	#   commit 2bda5a81db1e0cb113a7cf69d283e3e2635189e8
 	#  based on grub-2.06
 
-	git clone https://github.com/alex-ab/grub.git $GRUB2_DIR/grub.git
-	cd $GRUB2_DIR/grub.git && git checkout origin/genode_bios_206 -b genode_uefi
-	cd $GRUB2_DIR/grub.git && git checkout origin/genode_bios_206 -b genode_bios
-	cd $GRUB2_DIR/grub.git && git checkout master
+	git clone https://github.com/alex-ab/grub.git $GRUB2_DIR_SRC
+	cd $GRUB2_DIR_SRC && git checkout origin/genode_bios_206 -b genode_bios_206
+fi
+if [ ! -f $GRUB2_DIR_SRC/configure ]; then
+	cd $GRUB2_DIR_SRC && ./bootstrap
 fi
 
-if [ ! -d $GRUB2_DIR_UEFI_32_SRC ]; then
-	git clone -b genode_uefi $GRUB2_DIR/grub.git $GRUB2_DIR_UEFI_32_SRC
-fi
-
-if [ ! -d $GRUB2_DIR_UEFI_64_SRC ]; then
-	git clone -b genode_uefi $GRUB2_DIR/grub.git $GRUB2_DIR_UEFI_64_SRC
-fi
-
-if [ ! -d $GRUB2_DIR_BIOS_SRC ]; then
-	git clone -b genode_bios $GRUB2_DIR/grub.git $GRUB2_DIR_BIOS_SRC
-fi
-
+GRUB2_MODULES_COMMON="part_gpt multiboot multiboot2 gzio configfile"
+GRUB2_MODULES_UEFI="fat ext2 efi_uga efi_gop gfxterm_background png regexp"
 
 #
 # UEFI 64 bit version
 #
-if [ ! -f $GRUB2_DIR_UEFI_64_SRC/configure ]; then
-	cd $GRUB2_DIR_UEFI_64_SRC && ./bootstrap
-fi
-if [ ! -f $GRUB2_DIR_UEFI_64_SRC/config.h ]; then
-	cd $GRUB2_DIR_UEFI_64_SRC && ./configure --quiet --prefix=$GRUB2_DIR_UEFI_64_INSTALL --with-platform=efi --target=x86_64
-fi
-make --quiet -C $GRUB2_DIR_UEFI_64_SRC install
+GRUB2_DIR_UEFI_64=$GRUB2_DIR/64_efi
+GRUB2_DIR_UEFI_64_INSTALL=$GRUB2_DIR_UEFI_64/binary
+mkdir -p $GRUB2_DIR_UEFI_64_INSTALL
 
-$GRUB2_DIR_UEFI_64_INSTALL/bin/grub-mkimage -O x86_64-efi -d $GRUB2_DIR_UEFI_64_INSTALL/lib/grub/x86_64-efi -o $GRUB2_DIR/grub2_64.efi part_gpt multiboot multiboot2 fat normal efi_uga efi_gop gzio configfile ext2 gfxterm_background png regexp -p "/boot/grub"
+if [ ! -f $GRUB2_DIR_UEFI_64/config.h ]; then
+	cd $GRUB2_DIR_UEFI_64 && $GRUB2_DIR_SRC/configure --quiet --prefix=$GRUB2_DIR_UEFI_64_INSTALL --with-platform=efi --target=x86_64
+fi
+$MAKE -C $GRUB2_DIR_UEFI_64 install
+
+$GRUB2_DIR_UEFI_64_INSTALL/bin/grub-mkimage -O x86_64-efi -d $GRUB2_DIR_UEFI_64_INSTALL/lib/grub/x86_64-efi -o $GRUB2_DIR/grub2_64.efi $GRUB2_MODULES_COMMON $GRUB2_MODULES_UEFI -p "/boot/grub"
 
 
 #
 # UEFI 32 bit version
 #
-if [ ! -f $GRUB2_DIR_UEFI_32_SRC/configure ]; then
-	cd $GRUB2_DIR_UEFI_32_SRC && ./bootstrap
-fi
-if [ ! -f $GRUB2_DIR_UEFI_32_SRC/config.h ]; then
-	cd $GRUB2_DIR_UEFI_32_SRC && ./configure --quiet --prefix=$GRUB2_DIR_UEFI_32_INSTALL --with-platform=efi --target=i386
-fi
-make --quiet -C $GRUB2_DIR_UEFI_32_SRC install
+GRUB2_DIR_UEFI_32=$GRUB2_DIR/32_efi
+GRUB2_DIR_UEFI_32_INSTALL=$GRUB2_DIR_UEFI_32/binary
+mkdir -p $GRUB2_DIR_UEFI_32_INSTALL
 
-$GRUB2_DIR_UEFI_32_INSTALL/bin/grub-mkimage -O i386-efi -d $GRUB2_DIR_UEFI_32_INSTALL/lib/grub/i386-efi -o $GRUB2_DIR/grub2_32.efi part_gpt multiboot multiboot2 fat normal efi_uga efi_gop gzio configfile ext2 gfxterm_background png regexp -p "/boot/grub"
+if [ ! -f $GRUB2_DIR_UEFI_32/config.h ]; then
+	cd $GRUB2_DIR_UEFI_32 && $GRUB2_DIR_SRC/configure --quiet --prefix=$GRUB2_DIR_UEFI_32_INSTALL --with-platform=efi --target=i386
+fi
+$MAKE -C $GRUB2_DIR_UEFI_32 install
+
+$GRUB2_DIR_UEFI_32_INSTALL/bin/grub-mkimage -O i386-efi -d $GRUB2_DIR_UEFI_32_INSTALL/lib/grub/i386-efi -o $GRUB2_DIR/grub2_32.efi $GRUB2_MODULES_COMMON $GRUB2_MODULES_UEFI -p "/boot/grub"
 
 
 #
 # BIOS version
 #
-if [ ! -f $GRUB2_DIR_BIOS_SRC/configure ]; then
-	cd $GRUB2_DIR_BIOS_SRC && ./bootstrap
-fi
-if [ ! -f $GRUB2_DIR_BIOS_SRC/config.h ]; then
-	cd $GRUB2_DIR_BIOS_SRC && ./configure --quiet --prefix=$GRUB2_DIR_BIOS --with-platform=pc
-fi
-make --quiet -C $GRUB2_DIR_BIOS_SRC install
+GRUB2_DIR_BIOS=$GRUB2_DIR/32_pc
+GRUB2_DIR_BIOS_INSTALL=$GRUB2_DIR_BIOS/binary
+mkdir -p $GRUB2_DIR_BIOS_INSTALL
 
-$GRUB2_DIR_BIOS/bin/grub-mkimage -O i386-pc -d $GRUB2_DIR_BIOS/lib/grub/i386-pc -o $GRUB2_DIR/bios.img iso9660 biosdisk -p "/boot/grub"
-cat $GRUB2_DIR_BIOS/lib/grub/i386-pc/cdboot.img $GRUB2_DIR/bios.img > $GRUB2_DIR/eltorito.img
-cat $GRUB2_DIR_BIOS/lib/grub/i386-pc/boot.img $GRUB2_DIR/bios.img > $GRUB2_DIR/embedded.img
+if [ ! -f $GRUB2_DIR_BIOS/config.h ]; then
+	cd $GRUB2_DIR_BIOS && $GRUB2_DIR_SRC/configure --quiet --prefix=$GRUB2_DIR_BIOS_INSTALL --with-platform=pc
+fi
+$MAKE -C $GRUB2_DIR_BIOS install
+
+$GRUB2_DIR_BIOS_INSTALL/bin/grub-mkimage -O i386-pc -d $GRUB2_DIR_BIOS_INSTALL/lib/grub/i386-pc -o $GRUB2_DIR/bios.img $GRUB2_MODULES_COMMON iso9660 biosdisk -p "/boot/grub"
+cat $GRUB2_DIR_BIOS_INSTALL/lib/grub/i386-pc/cdboot.img $GRUB2_DIR/bios.img > $GRUB2_DIR/eltorito.img
+cat $GRUB2_DIR_BIOS_INSTALL/lib/grub/i386-pc/boot.img $GRUB2_DIR/bios.img > $GRUB2_DIR/embedded.img
 
 
 #
@@ -112,10 +102,6 @@ if [ ! -d $GRUB2_DIR/grub2 ]; then
 	mkdir $GRUB2_DIR/grub2
 fi
 
-for file in $FILES_MOD
-do
-	cp $GRUB2_DIR_BIOS/lib/grub/i386-pc/$file $GRUB2_DIR/grub2/$file
-done
 cp $GRUB2_DIR/eltorito.img $GRUB2_DIR/grub2/.
 cp $GRUB2_DIR/embedded.img $GRUB2_DIR/grub2/.
 
