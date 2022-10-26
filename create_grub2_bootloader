@@ -91,7 +91,7 @@ if [ ! -f $GRUB2_DIR_BIOS/config.h ]; then
 fi
 $MAKE -C $GRUB2_DIR_BIOS install
 
-$GRUB2_DIR_BIOS_INSTALL/bin/grub-mkimage -O i386-pc -d $GRUB2_DIR_BIOS_INSTALL/lib/grub/i386-pc -o $GRUB2_DIR/bios.img $GRUB2_MODULES_COMMON iso9660 biosdisk -p "/boot/grub"
+$GRUB2_DIR_BIOS_INSTALL/bin/grub-mkimage -O i386-pc -d $GRUB2_DIR_BIOS_INSTALL/lib/grub/i386-pc -o $GRUB2_DIR/bios.img iso9660 biosdisk -p "/boot/grub"
 cat $GRUB2_DIR_BIOS_INSTALL/lib/grub/i386-pc/cdboot.img $GRUB2_DIR/bios.img > $GRUB2_DIR/eltorito.img
 cat $GRUB2_DIR_BIOS_INSTALL/lib/grub/i386-pc/boot.img $GRUB2_DIR/bios.img > $GRUB2_DIR/embedded.img
 
@@ -101,7 +101,16 @@ cat $GRUB2_DIR_BIOS_INSTALL/lib/grub/i386-pc/boot.img $GRUB2_DIR/bios.img > $GRU
 #
 if [ ! -d $GRUB2_DIR/grub2 ]; then
 	mkdir $GRUB2_DIR/grub2
+else
+	rm $GRUB2_DIR/grub2/*
 fi
+
+# searched for and loaded by GRUB2 when part of ISO (--image/iso in Genode)
+ISO_MODULES="acpi boot bufio crypto datetime extcmd gcry_crc gettext gzio linux lsapm mmap multiboot multiboot2 net normal priority_queue regexp relocator terminal vbe video_fb video"
+for file in $ISO_MODULES
+do
+	cp $GRUB2_DIR_BIOS_INSTALL/lib/grub/i386-pc/$file.mod $GRUB2_DIR/grub2/$file.mod
+done
 
 cp $GRUB2_DIR/eltorito.img $GRUB2_DIR/grub2/.
 cp $GRUB2_DIR/embedded.img $GRUB2_DIR/grub2/.
