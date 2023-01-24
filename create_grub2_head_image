@@ -19,8 +19,10 @@
 # Some parts of this script must be executed with superuser privileges and
 # utilize 'sudo' for this purpose.
 
-set -e
-#set -x
+set -u # treat unset variables as error
+set -e # exit immediately on error
+
+USE_SUDO=sudo
 
 # hints in case you haven't enough /dev/loops
 #
@@ -29,22 +31,47 @@ set -e
 # mknod -m 660 /dev/loop25 b 7 25
 # mknod -m 660 /dev/loop26 b 7 26
 
+mnt_grub2=$(mktemp -d)
+mnt_genode=$(mktemp -d)
+
+function cleanup {
+	set +u # ignore unset variables
+	set +e # don't exit on error
+
+	if [ -d $mnt_grub2 ]; then
+		$USE_SUDO umount $mnt_grub2
+		rm -rf $mnt_grub2
+	fi
+	if [ -d $mnt_genode ]; then
+		$USE_SUDO umount $mnt_genode
+		rm -rf $mnt_genode
+	fi
+
+	if [ $loop_part3 ]; then
+		$USE_SUDO losetup -d $loop_part3
+	fi
+	if [ $loop_part2 ]; then
+		$USE_SUDO losetup -d $loop_part2
+	fi
+	if [ $loop_image ]; then
+		$USE_SUDO losetup -d $loop_image
+	fi
+}
+
+trap cleanup EXIT
+
 #
 # config
 #
 
-GRUB2_DIR=/tmp/tmp.genode_grub2/32_pc/binary
+GRUB2_BASE=/tmp/tmp.genode_grub2
+GRUB2_DIR=$GRUB2_BASE/32_pc/binary
 GRUB2_INSTALL=$GRUB2_DIR/sbin/grub-install
 
 if [ ! -d $GRUB2_DIR ]; then
 	echo "GRUB2 installation '$GRUB2_DIR' missing. Exiting..."
 	exit 1
 fi
-
-# loop dev for image, partition 2 and 3 of image
-loop_image=/dev/loop50
-loop_part2=/dev/loop51
-loop_part3=/dev/loop52
 
 head_size_kib=2048
 head_img="grub2-head.img"
@@ -79,32 +106,37 @@ let "grub2_size    = ($grub2_ls - $grub2_fs) * 512"
 let "genode_offset = $genode_fs * 512"
 let "genode_size   = ($genode_ls - $genode_fs) * 512"
 
-sudo losetup $loop_image $head_img
-sudo losetup $loop_part2 $head_img -o $grub2_offset  --sizelimit $grub2_size
-sudo losetup $loop_part3 $head_img -o $genode_offset --sizelimit $genode_size
+loop_image=$($USE_SUDO losetup -f)
+$USE_SUDO losetup $loop_image $head_img
+loop_part2=$($USE_SUDO losetup -f)
+$USE_SUDO losetup $loop_part2 $head_img -o $grub2_offset  --sizelimit $grub2_size
+loop_part3=$($USE_SUDO losetup -f)
+$USE_SUDO losetup $loop_part3 $head_img -o $genode_offset --sizelimit $genode_size
+
+echo "using loop file $loop_image for $head_img"
+echo "using loop file $loop_part2 for second partition"
+echo "using loop file $loop_part3 for third partition"
 
 # initialize partitions
-sudo mkfs.vfat $loop_part2 -n GRUB2
-sudo mkfs.vfat $loop_part3 -n GENODE*
+$USE_SUDO mkfs.vfat $loop_part2 -n GRUB2
+$USE_SUDO mkfs.vfat $loop_part3 -n GENODE
 
 # install GRUB2
-mnt_grub2=$(mktemp -d)
-mnt_genode=$(mktemp -d)
+$USE_SUDO mount $loop_part2 $mnt_grub2
+$USE_SUDO mount $loop_part3 $mnt_genode
 
-sudo mount $loop_part2 $mnt_grub2
-sudo mount $loop_part3 $mnt_genode
-
-sudo $GRUB2_INSTALL --root-directory=$mnt_grub2 --no-floppy \
+$USE_SUDO $GRUB2_INSTALL --root-directory=$mnt_grub2 --no-floppy \
                     --target i386-pc \
                     --install-modules="configfile multiboot multiboot2 gzio ext2 gfxterm_background png regexp" \
+                    --locales="" --fonts="" \
                     --modules="biosdisk part_gpt vbe" $loop_image
-sudo rm $mnt_grub2/boot/grub/grubenv
-sudo rm $mnt_grub2/boot/grub/i386-pc/*.img
-sudo rm $mnt_grub2/boot/grub/i386-pc/*.sh
-sudo rm $mnt_grub2/boot/grub/i386-pc/*.o
-sudo rm $mnt_grub2/boot/grub/i386-pc/*.cfg
-sudo rmdir $mnt_grub2/boot/grub/fonts
-sudo rmdir $mnt_grub2/boot/grub/locale
+$USE_SUDO rm $mnt_grub2/boot/grub/grubenv
+$USE_SUDO rm $mnt_grub2/boot/grub/i386-pc/*.img
+$USE_SUDO rm $mnt_grub2/boot/grub/i386-pc/*.sh
+$USE_SUDO rm $mnt_grub2/boot/grub/i386-pc/*.o
+$USE_SUDO rm $mnt_grub2/boot/grub/i386-pc/*.cfg
+$USE_SUDO rmdir $mnt_grub2/boot/grub/fonts
+$USE_SUDO rmdir $mnt_grub2/boot/grub/locale
 
 # generate GRUB2 configuration
 cfg=$(mktemp)
@@ -122,16 +154,16 @@ insmod gfxterm
 terminal_output gfxterm
 insmod gfxterm_background
 insmod png
-#loadfont /boot/grub/fonts/unicode.pf2
+loadfont /boot/font.pf2
 background_image -m center /boot/boot.png
 
 configfile /boot/grub/grub.cfg
 EOF
 
-sudo cp $cfg $mnt_grub2/boot/grub/grub.cfg
-sudo mkdir -p $mnt_grub2/efi/boot
-sudo cp grub2/grub2_32.efi $mnt_grub2/efi/boot/bootia32.efi
-sudo cp grub2/grub2_64.efi $mnt_grub2/efi/boot/bootx64.efi
+$USE_SUDO cp $cfg $mnt_grub2/boot/grub/grub.cfg
+$USE_SUDO mkdir -p $mnt_grub2/efi/boot
+$USE_SUDO cp $GRUB2_BASE/grub2/grub2_32.efi $mnt_grub2/efi/boot/bootia32.efi
+$USE_SUDO cp $GRUB2_BASE/grub2/grub2_64.efi $mnt_grub2/efi/boot/bootx64.efi
 
 cat > $cfg <<EOF
 
@@ -140,23 +172,11 @@ menuentry 'Genode on ???' {
 }
 EOF
 
-sudo mkdir -p $mnt_genode/boot/grub
-sudo cp $cfg $mnt_genode/boot/grub/grub.cfg
-
-#sudo cp $GENODE_DIR/repos/gems/src/app/backdrop/genode_logo.png $mnt_genode/boot/boot.png
-#sudo mkdir -p $mnt_genode/boot/grub/fonts/
-# by installing libfreetype6-dev? or unifont? it will be generated
-#sudo cp /boot/grub/fonts/unicode.pf2 $mnt_genode/boot/grub/fonts/.
+$USE_SUDO mkdir -p $mnt_genode/boot/grub
+$USE_SUDO cp $cfg $mnt_genode/boot/grub/grub.cfg
 
 # show numbers about allocated/free space
 df -h $loop_part2 $loop_part3
 
 # cleanup
 rm $cfg
-sudo umount $mnt_grub2
-sudo umount $mnt_genode
-rm -r $mnt_grub2
-rm -r $mnt_genode
-sudo losetup -d $loop_part3
-sudo losetup -d $loop_part2
-sudo losetup -d $loop_image

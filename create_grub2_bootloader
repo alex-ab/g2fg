@@ -4,26 +4,43 @@
 
 set -e # exit immediately on error
 
-if [ ! -d $GENODE_DIR/repos ]; then
-	echo "Directory seems not to contain Genode sources - exit"
-	echo "\$GENODE_DIR: '$GENODE_DIR'"
-	exit
-fi
-
 MAKE="${MAKE:="make"} --quiet"
 
 set -u # treat unset variables as error
 
-cd $GENODE_DIR
+#
+# download and create font for grub2
+#
+FONT=ttf-bitstream-vera-1.10
+FONT_FILE=$FONT.tar.bz2
+if [ ! -f $FONT_FILE ]; then
+	wget https://ftp.gnome.org/pub/GNOME/sources/ttf-bitstream-vera/1.10/$FONT_FILE
+fi
 
-GRUB2_PORT_DIR=$($GENODE_DIR/tool/ports/current grub2)
+HASH_DOWNLOAD=$(sha256sum $FONT_FILE)
+HASH_EXPECTED="db5b27df7bbb318036ebdb75acd3e98f1bd6eb6608fb70a67d478cd243d178dc"
+
+if [ ! "${HASH_DOWNLOAD:0:64}" = $HASH_EXPECTED ]; then
+	echo "unexpected hash of font file"
+	echo "$HASH_DOWNLOAD"
+	exit 1
+fi
+
+if [ -d $FONT ]; then rm -rf $FONT; fi
+tar -xjf $FONT_FILE
+grub-mkfont -s 14 -o font.pf2 $FONT/VeraMono.ttf
+xz font.pf2
+
+#
+# build grub2 for uefi 32/64 bit and BIOS legacy
+#
 
 GRUB2_DIR=/tmp/tmp.genode_grub2
 
 GRUB2_KEEP_TMP=1
 
 if [ ! -d $GRUB2_DIR ]; then
-	GRUB2_DIR=$(mktemp -d)
+	mkdir $GRUB2_DIR
 fi
 
 GRUB2_DIR_SRC=$GRUB2_DIR/grub.git
@@ -31,15 +48,12 @@ GRUB2_DIR_SRC=$GRUB2_DIR/grub.git
 if [ ! -d $GRUB2_DIR_SRC ]; then
 	#git clone git://git.savannah.gnu.org/grub.git $GRUB2_DIR/grub.git
 	# ae94b97be2b81b625d6af6654d3ed79078b50ff6 (tag: grub-2.06)
-	#genode_uefi version:
-	#   commit 2bda5a81db1e0cb113a7cf69d283e3e2635189e8
-	#  based on grub-2.06
-	# genode_bios version:
-	#   commit 2bda5a81db1e0cb113a7cf69d283e3e2635189e8
-	#  based on grub-2.06
+	# genode_206 version:
+	#   commit a8c7a57d1520803b87a8173c742d10422f1946c8
+	#   based on grub-2.06
 
 	git clone https://github.com/alex-ab/grub.git $GRUB2_DIR_SRC
-	cd $GRUB2_DIR_SRC && git checkout origin/genode_bios_206 -b genode_bios_206
+	cd $GRUB2_DIR_SRC && git checkout origin/genode_206 -b genode_206
 fi
 if [ ! -f $GRUB2_DIR_SRC/configure ]; then
 	cd $GRUB2_DIR_SRC && ./bootstrap
@@ -102,7 +116,7 @@ cat $GRUB2_DIR_BIOS_INSTALL/lib/grub/i386-pc/boot.img $GRUB2_DIR/bios.img > $GRU
 if [ ! -d $GRUB2_DIR/grub2 ]; then
 	mkdir $GRUB2_DIR/grub2
 else
-	rm $GRUB2_DIR/grub2/*
+	rm  -rf $GRUB2_DIR/grub2/*
 fi
 
 # searched for and loaded by GRUB2 when part of ISO (--image/iso in Genode)
