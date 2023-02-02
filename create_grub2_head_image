@@ -38,6 +38,9 @@ function cleanup {
 	set +u # ignore unset variables
 	set +e # don't exit on error
 
+	# show numbers about allocated/free space
+	df -h $loop_part2 $loop_part3
+
 	if [ -d $mnt_grub2 ]; then
 		$USE_SUDO umount $mnt_grub2
 		rm -rf $mnt_grub2
@@ -73,7 +76,7 @@ if [ ! -d $GRUB2_DIR ]; then
 	exit 1
 fi
 
-head_size_kib=2048
+head_size_kib=2276
 head_img="grub2-head.img"
 
 # generate image file
@@ -89,7 +92,7 @@ parted="parted -a none -s $head_img -- "
 let "bios_boot_fs = 40  *     512 / 512" # fs == firstsector
 let "bios_boot_ls = $bios_boot_fs + 100"  # ls == lastsector
 let "grub2_fs     = $bios_boot_ls + 1"
-let "grub2_ls     = 1996 * 1024 / 512 - $bios_boot_fs - 1"
+let "grub2_ls     = 2148 * 1024 / 512 - $bios_boot_fs - 1"
 let "genode_fs    = $grub2_ls + 1"
 let "genode_ls    = $head_size_kib * 1024 / 512 - $bios_boot_fs - 1"
 
@@ -174,9 +177,6 @@ EOF
 
 $USE_SUDO mkdir -p $mnt_genode/boot/grub
 $USE_SUDO cp $cfg $mnt_genode/boot/grub/grub.cfg
-
-# show numbers about allocated/free space
-df -h $loop_part2 $loop_part3
 
 # cleanup
 rm $cfg
