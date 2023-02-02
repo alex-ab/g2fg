@@ -27,6 +27,7 @@ if [ ! "${HASH_DOWNLOAD:0:64}" = $HASH_EXPECTED ]; then
 fi
 
 if [ -d $FONT ]; then rm -rf $FONT; fi
+if [ -f font.pf2.xz ]; then rm font.pf2.xz; fi
 tar -xjf $FONT_FILE
 grub-mkfont -s 14 -o font.pf2 $FONT/VeraMono.ttf
 xz font.pf2
@@ -48,19 +49,19 @@ GRUB2_DIR_SRC=$GRUB2_DIR/grub.git
 if [ ! -d $GRUB2_DIR_SRC ]; then
 	#git clone git://git.savannah.gnu.org/grub.git $GRUB2_DIR/grub.git
 	# ae94b97be2b81b625d6af6654d3ed79078b50ff6 (tag: grub-2.06)
-	# genode_206 version:
-	#   commit a8c7a57d1520803b87a8173c742d10422f1946c8
+	# genode_206_debug version:
+	#   commit a8b85946e8f4b0d0019b81548c66e5c119623353
 	#   based on grub-2.06
 
 	git clone https://github.com/alex-ab/grub.git $GRUB2_DIR_SRC
-	cd $GRUB2_DIR_SRC && git checkout origin/genode_206 -b genode_206
+	cd $GRUB2_DIR_SRC && git checkout origin/genode_206_debug -b genode_206_debug
 fi
 if [ ! -f $GRUB2_DIR_SRC/configure ]; then
 	cd $GRUB2_DIR_SRC && ./bootstrap
 fi
 
-GRUB2_MODULES_COMMON="part_gpt multiboot multiboot2 gzio configfile"
-GRUB2_MODULES_UEFI="fat ext2 efi_uga efi_gop gfxterm_background png regexp"
+GRUB2_MODULES_COMMON="part_gpt multiboot multiboot2 gzio configfile help hexdump videoinfo videotest lspci setpci pcidump lsmmap memrw iorw smbios tpm"
+GRUB2_MODULES_UEFI="fat ext2 efi_uga efi_gop gfxterm_background png regexp lsefi lsefimmap lsefisystab smbios tpm"
 
 #
 # UEFI 64 bit version
