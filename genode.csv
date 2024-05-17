@@ -1,0 +1,3 @@
+sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
+grub,2,Free Software Foundation,grub,2.06,https://www.gnu.org/software/grub
+genode,1,Genode Labs GmbH,genode,206,https://github.com/alex-ab/grub/commits/genode_206
