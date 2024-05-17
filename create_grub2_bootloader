@@ -50,11 +50,11 @@ if [ ! -d $GRUB2_DIR_SRC ]; then
 	#git clone git://git.savannah.gnu.org/grub.git $GRUB2_DIR/grub.git
 	# ae94b97be2b81b625d6af6654d3ed79078b50ff6 (tag: grub-2.06)
 	# genode_206 version:
-	#   commit a8b85946e8f4b0d0019b81548c66e5c119623353
+	#   commit a796701668826f9b64f0217e19f7a4bede92f431
 	#   based on grub-2.06
 
 	git clone https://github.com/alex-ab/grub.git $GRUB2_DIR_SRC
-	cd $GRUB2_DIR_SRC && git checkout a8b85946e8f4b0d0019b81548c66e5c119623353 -b genode_206
+	cd $GRUB2_DIR_SRC && git checkout a796701668826f9b64f0217e19f7a4bede92f431 -b genode_206
 fi
 if [ ! -f $GRUB2_DIR_SRC/configure ]; then
 	cd $GRUB2_DIR_SRC && ./bootstrap
@@ -75,8 +75,8 @@ if [ ! -f $GRUB2_DIR_UEFI_64/config.h ]; then
 fi
 $MAKE -C $GRUB2_DIR_UEFI_64 install
 
-$GRUB2_DIR_UEFI_64_INSTALL/bin/grub-mkimage -O x86_64-efi -d $GRUB2_DIR_UEFI_64_INSTALL/lib/grub/x86_64-efi -o $GRUB2_DIR/grub2_64.efi $GRUB2_MODULES_COMMON $GRUB2_MODULES_UEFI -p "/boot/grub"
-$GRUB2_DIR_UEFI_64_INSTALL/bin/grub-mkimage -O x86_64-efi -d $GRUB2_DIR_UEFI_64_INSTALL/lib/grub/x86_64-efi -o $GRUB2_DIR/grub2_64net.efi tftp efinet multiboot2 gzio configfile -p "/tftpboot"
+$GRUB2_DIR_UEFI_64_INSTALL/bin/grub-mkimage --disable-shim-lock --sbat=genode.csv -O x86_64-efi -d $GRUB2_DIR_UEFI_64_INSTALL/lib/grub/x86_64-efi -o $GRUB2_DIR/grub2_64.efi $GRUB2_MODULES_COMMON $GRUB2_MODULES_UEFI -p "/boot/grub"
+$GRUB2_DIR_UEFI_64_INSTALL/bin/grub-mkimage --disable-shim-lock --sbat=genode.csv -O x86_64-efi -d $GRUB2_DIR_UEFI_64_INSTALL/lib/grub/x86_64-efi -o $GRUB2_DIR/grub2_64net.efi tftp efinet multiboot2 gzio configfile -p "/tftpboot"
 
 
 #
@@ -91,7 +91,7 @@ if [ ! -f $GRUB2_DIR_UEFI_32/config.h ]; then
 fi
 $MAKE -C $GRUB2_DIR_UEFI_32 install
 
-$GRUB2_DIR_UEFI_32_INSTALL/bin/grub-mkimage -O i386-efi -d $GRUB2_DIR_UEFI_32_INSTALL/lib/grub/i386-efi -o $GRUB2_DIR/grub2_32.efi $GRUB2_MODULES_COMMON $GRUB2_MODULES_UEFI -p "/boot/grub"
+$GRUB2_DIR_UEFI_32_INSTALL/bin/grub-mkimage --disable-shim-lock --sbat=genode.csv -O i386-efi -d $GRUB2_DIR_UEFI_32_INSTALL/lib/grub/i386-efi -o $GRUB2_DIR/grub2_32.efi $GRUB2_MODULES_COMMON $GRUB2_MODULES_UEFI -p "/boot/grub"
 
 
 #
