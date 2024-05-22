@@ -76,8 +76,11 @@ if [ ! -d $GRUB2_DIR ]; then
 	exit 1
 fi
 
+#head_size_kib=4276
+#head_img="grub2-head-big.img"
 head_size_kib=2276
 head_img="grub2-head.img"
+genode_size_kib=$(expr $head_size_kib - 128)
 
 # generate image file
 if [ -f $head_img ]; then
@@ -92,7 +95,7 @@ parted="parted -a none -s $head_img -- "
 let "bios_boot_fs = 40  *     512 / 512" # fs == firstsector
 let "bios_boot_ls = $bios_boot_fs + 100"  # ls == lastsector
 let "grub2_fs     = $bios_boot_ls + 1"
-let "grub2_ls     = 2148 * 1024 / 512 - $bios_boot_fs - 1"
+let "grub2_ls     = $genode_size_kib * 1024 / 512 - $bios_boot_fs - 1"
 let "genode_fs    = $grub2_ls + 1"
 let "genode_ls    = $head_size_kib * 1024 / 512 - $bios_boot_fs - 1"
 
@@ -165,8 +168,6 @@ EOF
 
 $USE_SUDO cp $cfg $mnt_grub2/boot/grub/grub.cfg
 $USE_SUDO mkdir -p $mnt_grub2/efi/boot
-$USE_SUDO cp $GRUB2_BASE/grub2/grub2_32.efi $mnt_grub2/efi/boot/bootia32.efi
-$USE_SUDO cp $GRUB2_BASE/grub2/grub2_64.efi $mnt_grub2/efi/boot/bootx64.efi
 
 cat > $cfg <<EOF
 
