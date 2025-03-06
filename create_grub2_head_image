@@ -78,7 +78,7 @@ fi
 
 #head_size_kib=4276
 #head_img="grub2-head-big.img"
-head_size_kib=2276
+head_size_kib=2476
 head_img="grub2-head.img"
 genode_size_kib=$(expr $head_size_kib - 128)
 
