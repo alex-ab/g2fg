@@ -1,0 +1,93 @@
+#!/bin/bash
+#
+# \author  Alexander Boettcher
+
+set -e # exit immediately on error
+
+MAKE="${MAKE:="make"} --quiet"
+
+set -u # treat unset variables as error
+
+#
+# download and create font for grub2
+#
+FONT=ttf-bitstream-vera-1.10
+FONT_FILE=$FONT.tar.bz2
+if [ ! -f $FONT_FILE ]; then
+	wget https://ftp.gnome.org/pub/GNOME/sources/ttf-bitstream-vera/1.10/$FONT_FILE
+fi
+
+HASH_DOWNLOAD=$(sha256sum $FONT_FILE)
+HASH_EXPECTED="db5b27df7bbb318036ebdb75acd3e98f1bd6eb6608fb70a67d478cd243d178dc"
+
+if [ ! "${HASH_DOWNLOAD:0:64}" = $HASH_EXPECTED ]; then
+	echo "unexpected hash of font file"
+	echo "$HASH_DOWNLOAD"
+	exit 1
+fi
+
+if [ -d $FONT ]; then rm -rf $FONT; fi
+if [ -f font.pf2.xz ]; then rm font.pf2.xz; fi
+tar -xjf $FONT_FILE
+grub-mkfont -s 14 -o font.pf2 $FONT/VeraMono.ttf
+xz font.pf2
+
+#
+# build grub2 for ARM64 UEFI
+#
+
+GRUB2_DIR=/tmp/tmp.genode_grub2
+
+GRUB2_KEEP_TMP=1
+
+GRUB2_GENODE_CSV=$PWD/genode.csv
+
+if [ ! -d $GRUB2_DIR ]; then
+	mkdir $GRUB2_DIR
+fi
+
+GRUB2_DIR_SRC=$GRUB2_DIR/grub.git
+
+if [ ! -d $GRUB2_DIR_SRC ]; then
+	# git clone https://git.savannah.gnu.org/git/grub.git $GRUB2_DIR/grub.git
+	# ff7f5530713c203c90a7dea2b7c56d403673548b (after tag: grub-2.12)
+	# genode_213 version:
+	#   commit b3f6ac89832ddcba3833828d51b0e44bf97c1a38
+	#   based on grub-2.12
+
+	git clone https://github.com/alex-ab/grub.git $GRUB2_DIR_SRC
+	cd $GRUB2_DIR_SRC && git checkout b3f6ac89832ddcba3833828d51b0e44bf97c1a38 -b genode213_arm
+fi
+if [ ! -f $GRUB2_DIR_SRC/configure ]; then
+	cd $GRUB2_DIR_SRC && ./bootstrap
+fi
+
+GRUB2_MODULES_COMMON="part_gpt multiboot2 gzio configfile help hexdump videoinfo videotest lsmmap memrw smbios tpm"
+GRUB2_MODULES_UEFI="fat ext2 efi_gop gfxterm_background png regexp lsefi lsefimmap lsefisystab"
+
+#
+# UEFI 64 bit version
+#
+GRUB2_DIR_UEFI_64=$GRUB2_DIR/64_efi
+GRUB2_DIR_UEFI_64_INSTALL=$GRUB2_DIR_UEFI_64/binary
+mkdir -p $GRUB2_DIR_UEFI_64_INSTALL
+
+if [ ! -f $GRUB2_DIR_UEFI_64/config.h ]; then
+	cd $GRUB2_DIR_UEFI_64 && $GRUB2_DIR_SRC/configure --quiet --prefix=$GRUB2_DIR_UEFI_64_INSTALL --with-platform=efi --target=arm64
+fi
+$MAKE -C $GRUB2_DIR_UEFI_64 install
+
+$GRUB2_DIR_UEFI_64_INSTALL/bin/grub-mkimage --disable-shim-lock --sbat=$GRUB2_GENODE_CSV -O arm64-efi -d $GRUB2_DIR_UEFI_64_INSTALL/lib/grub/arm64-efi -o $GRUB2_DIR/grub2_arm64.efi $GRUB2_MODULES_COMMON $GRUB2_MODULES_UEFI -p "/boot/grub"
+
+
+#
+# Copy bootloader binaries to genode tool directory
+#
+if [ ! -d $GRUB2_DIR/grub2 ]; then
+	mkdir $GRUB2_DIR/grub2
+else
+#	rm  -rf $GRUB2_DIR/grub2/*
+fi
+
+# UEFI
+cp $GRUB2_DIR/grub2_arm64.efi $GRUB2_DIR/grub2/.
