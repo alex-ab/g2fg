@@ -62,7 +62,7 @@ if [ ! -f $GRUB2_DIR_SRC/configure ]; then
 	cd $GRUB2_DIR_SRC && ./bootstrap
 fi
 
-GRUB2_MODULES_COMMON="part_gpt multiboot multiboot2 gzio configfile help hexdump videoinfo videotest lspci setpci pcidump lsmmap memrw iorw smbios tpm"
+GRUB2_MODULES_COMMON="part_gpt multiboot multiboot2 gzio configfile help hexdump videoinfo videotest lspci setpci pcidump lsmmap memrw iorw smbios tpm serial"
 GRUB2_MODULES_UEFI="fat ext2 efi_uga efi_gop gfxterm_background png regexp lsefi lsefimmap lsefisystab smbios tpm"
 
 #
